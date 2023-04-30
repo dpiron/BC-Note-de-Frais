@@ -4,7 +4,7 @@ from datetime import date
 import streamlit as st
 from streamlit.components.v1 import iframe
 from google.oauth2 import service_account
-from gsheetsdb import connect
+from shillelagh.backends.apsw.db import connect
 
 # Create a connection object.
 credentials = service_account.Credentials.from_service_account_info(
@@ -13,19 +13,35 @@ credentials = service_account.Credentials.from_service_account_info(
         "https://www.googleapis.com/auth/spreadsheets",
     ],
 )
-conn = connect(credentials=credentials)
+
+conn = connect(":memory:", adapter_kwargs={
+    "gsheetaspi" : {
+    "service_account_info" : {
+        "type" : st.secrets["gcp_service_account"]["type"],
+        "project_id" : st.secrets["gcp_service_account"]["project_id"],
+        "private_key_id" : st.secrets["gcp_service_account"]["private_key_id"],
+        "private_key" : st.secrets["gcp_service_account"]["private_key"],
+        "client_email" : st.secrets["gcp_service_account"]["client_email"],
+        "client_id" : st.secrets["gcp_service_account"]["client_id"],
+        "auth_uri" : st.secrets["gcp_service_account"]["auth_uri"],
+        "token_uri" : st.secrets["gcp_service_account"]["token_uri"],
+        "auth_provider_x509_cert_url" : st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url" : st.secrets["gcp_service_account"]["client_x509_cert_url"],
+        }
+    },
+})
 
 
 # Perform SQL query on the Google Sheet.
 # Uses st.cache_data to only rerun when the query changes or after 10 min.
 @st.cache_data(ttl=600)
 def run_query(query):
-    rows = conn.execute(query, headers=1)
+    rows = conn.execute(query, headers=7)
     rows = rows.fetchall()
     return rows
 
 
-sheet_url = st.secrets["private_gsheets_url"]
+sheet_url = st.secrets["gcp_service_account"]["private_gsheets_url"]
 rows = run_query(f'SELECT * FROM "{sheet_url}"')
 
 
