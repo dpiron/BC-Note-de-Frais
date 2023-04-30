@@ -2,106 +2,97 @@ import pdfkit
 from jinja2 import Environment, PackageLoader, select_autoescape, FileSystemLoader
 from datetime import date
 import streamlit as st
-from streamlit.components.v1 import iframe
-from google.oauth2 import service_account
-from shillelagh.backends.apsw.db import connect
-
-# Create a connection object.
-credentials = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-    ],
-)
-
-conn = connect(":memory:", adapter_kwargs={
-    "gsheetaspi" : {
-    "service_account_info" : {
-        "type" : st.secrets["gcp_service_account"]["type"],
-        "project_id" : st.secrets["gcp_service_account"]["project_id"],
-        "private_key_id" : st.secrets["gcp_service_account"]["private_key_id"],
-        "private_key" : st.secrets["gcp_service_account"]["private_key"],
-        "client_email" : st.secrets["gcp_service_account"]["client_email"],
-        "client_id" : st.secrets["gcp_service_account"]["client_id"],
-        "auth_uri" : st.secrets["gcp_service_account"]["auth_uri"],
-        "token_uri" : st.secrets["gcp_service_account"]["token_uri"],
-        "auth_provider_x509_cert_url" : st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
-        "client_x509_cert_url" : st.secrets["gcp_service_account"]["client_x509_cert_url"],
-        }
-    },
-})
+import pandas as pd
+from io import StringIO
+from datetime import date
 
 
-# Perform SQL query on the Google Sheet.
-# Uses st.cache_data to only rerun when the query changes or after 10 min.
-@st.cache_data(ttl=600)
-def run_query(query):
-    rows = conn.execute(query, headers=7)
-    rows = rows.fetchall()
-    return rows
+st.set_page_config(layout="centered", page_title="Note de Frais")
+st.title("Note de Frais")
 
+data = st.text_area('Paste from google sheets', value='Paste data here')
 
-sheet_url = st.secrets["gcp_service_account"]["private_gsheets_url"]
-rows = run_query(f'SELECT * FROM "{sheet_url}"')
+csvStringIO = StringIO(data)
+df = pd.read_csv(csvStringIO, sep=";", header=None)
 
+df = df.fillna(value='')
+df.columns = ['Date', 'Description', 'Items', 'Source', 'Amount', 'Paid by']
 
-# Print results.
-for row in rows:
-    st.write(f"row")
+for i in range(len(df['Date'])):
+    date_str = df['Date'][i].split('-')
+    date_int = [int(x) for x in date_str]
+    date_obj = date(date_int[2], date_int[1], date_int[0])
+    df['Date'][i] = date_obj
 
+for i in range(len(df['Items'])):
+    df['Items'][i] = df['Items'][i].split(',')
 
-st.set_page_config(layout="centered", page_icon="🎓", page_title="Diploma Generator")
-st.title("🎓 Diploma PDF Generator")
+for i in range(len(df['Amount'])):
+    df['Amount'][i] = float(df['Amount'][i].replace(',', '.'))
 
-st.write(
-    "This app shows you how you can use Streamlit to make a PDF generator app in just a few lines of code!"
-)
-
-left, right = st.columns(2)
-
-right.write("Here's the template we'll be using:")
+### split D and J
+df_D = df[df['Paid by'] == 'D']
+df_J = df[df['Paid by'] == 'J']
 
 env = Environment(loader=FileSystemLoader("."), autoescape=select_autoescape())
 template = env.get_template("TemplateNotedeFrais.html")
 
 
+def generate(df, who, i):
+    df = df.sort_values(by='Date').reset_index()
 
-left.write("Fill in the data:")
-form = left.form("template_form")
-student = form.text_input("Student name")
-course = form.selectbox(
-    "Choose course",
-    ["Report Generation in Streamlit", "Advanced Cryptography"],
-    index=0,
-)
-grade = form.slider("Grade", 1, 100, 60)
-submit = form.form_submit_button("Generate PDF")
+    range_rows = range(len(df['Date']))
 
-if submit:
-    html = template.render(
-        company='BOYAVAL CONSULTANCY SRL',
-        company_address='Rue Félix Bovie 13, 1050 Ixelles',
-        n_entreprise='543256432654364543',
-        n_tva='n_tva',
-        n_compte='n_compte',
-        n_ndf='2209-01',
-        date_to_do='SEPTEMBRE 2022',
-        n_compte_receiver='435643263',
-        name='Denis Piron',
-        course=course,
-        grade=f"{grade}/100",
-        date=date.today().strftime("%B %d, %Y"),
-    )
+    if who == 'D':
+        name = 'Denis Piron'
+        n_compte_receiver = 'BE58 0019 0996 7079'
+    elif who == 'J':
+        name = 'Julia Boyaval'
+        n_compte_receiver = 'BE71 0019 4884 3669'
 
-    pdf = pdfkit.from_string(html, False, options={"enable-local-file-access": ""})
-    st.balloons()
+    n_input = st.number_input('Numéro de la note', value=i)
+    submit = st.button(f'Générer note de frais - {name}', use_container_width=True)
 
-    right.success("🎉 Your diploma was generated!")
-    # st.write(html, unsafe_allow_html=True)
-    # st.write("")
-    right.download_button(
-        "⬇️ Download PDF",
-        data=pdf,
-        file_name="diploma.pdf",
-        mime="application/octet-stream",
-    )
+    first_date = df['Date'][0]
+    n_ndf = first_date.strftime('%y%m') + '-' + str(n_input)
+
+    if submit:
+        html = template.render(
+            company='BOYAVAL CONSULTANCY SRL',
+            company_address='Rue Félix Bovie 13/1, 1050 Ixelles',
+            n_entreprise='0793.986.966',
+            n_compte='BE41 9675 3464 9010',
+            n_ndf=n_ndf,
+            date=first_date,
+            n_compte_receiver=n_compte_receiver,
+            name=name,
+            df=df,
+            range_rows=range_rows
+        )
+
+        pdf = pdfkit.from_string(html, False, options={"enable-local-file-access": ""})
+        st.balloons()
+
+        st.download_button(
+            "Download PDF",
+            data=pdf,
+            file_name=f"Note-de-Frais-{n_ndf}-{who}.pdf",
+            mime="application/octet-stream",
+            use_container_width=True
+        )
+    return
+
+
+i = 1
+col1, col2 = st.columns(2)
+
+if not df_D.empty:
+    with col1:
+        generate(df_D, 'D', i)
+    i += 1
+
+if not df_J.empty:
+    with col2:
+        generate(df_J, 'J', i)
+    i += 1
+

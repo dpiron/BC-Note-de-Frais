@@ -7,12 +7,11 @@
       <p class="c0 c8"><span class="c18">{{ company }}<br></span><span class="c10">{{ company_address }}</span></p>
       <p class="c0 c2"><span class="c10"></span></p>
       <p class="c0 c8"><span class="c10">Num&eacute;ro d&rsquo;entreprise : {{ n_entreprise }}</span></p>
-      <p class="c0 c8"><span class="c10">Num&eacute;ro de TVA : {{ n_tva }}</span></p>
       <p class="c0 c8"><span class="c10">Num&eacute;ro de compte : {{ n_compte }}</span></p>
       <p class="c0 c2"><span class="c10"></span></p>
       <p class="c0 c2"><span class="c10"></span></p>
       <p class="c0 c8 title" id="h.lntg56ljm653"><span class="c14">NOTE DE FRAIS {{ n_ndf }}</span></p>
-      <p class="c6 subtitle" id="h.4bu4z72jz2rz"><span class="c19">{{ date_to_do }}</span></p>
+      <p class="c6 subtitle" id="h.4bu4z72jz2rz"><span class="c19">{{ date.strftime("%m/%Y") }}</span></p>
       <p class="c5 c12"><span class="c7"></span></p>
       <p class="c5"><span class="c4">Nom : {{ name }}<br>Num&eacute;ro de compte : {{ n_compte_receiver }}</span></p>
       <p class="c5 c12"><span class="c7"></span></p>
@@ -33,44 +32,29 @@
             </td>
          </tr>
 
+         {% for i in range_rows %}
           <tr class="c1">
             <td class="c9" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">22/09/2022</span></p>
+               <p class="c0"><span class="c7">{{ df['Date'][i].strftime("%d/%m/%Y") }}</span></p>
             </td>
             <td class="c11" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">Mat&eacute;riel informatique :</span></p>
+               <p class="c0"><span class="c7">{{ df['Description'][i] }}</span></p>
+               {% if df['Items'][i] != [''] %}
                <ul class="c20 lst-kix_j2dpaa24169y-0 start">
-                  <li class="c0 c16 li-bullet-0"><span class="c7">chargeur &nbsp;t&eacute;l&eacute;phone</span></li>
-                  <li class="c0 c16 li-bullet-0"><span class="c7">accessoire t&eacute;l&eacute;phone</span></li>
+                     {% for item in df['Items'][i] %}
+                     <li class="c0 c16 li-bullet-0"><span class="c7">{{ item }}</span></li>
+                     {% endfor %}
                </ul>
-               <p class="c0"><span class="c7">Autre mat&eacute;riel :</span></p>
-               <ul class="c20 lst-kix_uu6sa1puyi5m-0 start">
-                  <li class="c0 c16 li-bullet-0"><span class="c7">vfdsg</span></li>
-                  <li class="c0 c16 li-bullet-0"><span class="c7">gfds</span></li>
-               </ul>
+               {% endif %}
             </td>
             <td class="c13" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">Amazon</span></p>
+               <p class="c0"><span class="c7">{{ df['Source'][i] }}</span></p>
             </td>
             <td class="c17" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">100,00 &euro;</span></p>
+               <p class="c0" style="text-align: right"><span class="c7">{{ "{:.2f}".format(df['Amount'][i]) }} &euro;</span></p>
             </td>
          </tr>
-
-         <tr class="c1">
-            <td class="c9" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">23/09/2022</span></p>
-            </td>
-            <td class="c11" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">item 2</span></p>
-            </td>
-            <td class="c13" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">item 2</span></p>
-            </td>
-            <td class="c17" colspan="1" rowspan="1">
-               <p class="c0"><span class="c7">100,00 &euro;</span></p>
-            </td>
-         </tr>
+         {% endfor %}
 
          <tr class="c1">
             <td class="c9" colspan="1" rowspan="1">
@@ -83,7 +67,7 @@
                <p class="c0"><span class="c4">Total:</span></p>
             </td>
             <td class="c17" colspan="1" rowspan="1">
-               <p class="c0"><span class="c4">200,00 &euro;</span></p>
+               <p class="c0" style="text-align: right"><span class="c4">{{ "{:.2f}".format(df['Amount'].sum()) }} &euro;</span></p>
             </td>
          </tr>
 
